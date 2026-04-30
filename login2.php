@@ -263,6 +263,10 @@ if (!isset($_SESSION["user"])) {
     if (!isset($_GET['idClient']) && $_SESSION["user"][4] <> "*") {
         header('location: ./dashboard.php?idClient=' . $_SESSION["user"][4]);
     }
+    if ($_SESSION["user"][1] == "*" && $_SESSION["user"][4] == "*") {
+        header('location: ./superadmin.php');
+        exit();
+    }
     if ($_SESSION["user"][4] == "*") {
         ?>
             <div class="login-wrapper">

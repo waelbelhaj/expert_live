@@ -2,16 +2,16 @@
 // Fichier : db.php
 // Connexion PDO globale et optimisée
 
-// $host = '127.0.0.1'; // ou localhost
-// $db = 'expert_live';
-// $user = 'root';
-// $pass = '';
- $charset = 'utf8mb4';
- $host = '102.219.176.39'; // ou localhost
- $db = 'dveuvwkq_exp_liv';
- $user = 'dveuvwkq_exp_liv';
- $pass = 'bftKtQVN222OlTIW';
- $charset = 'utf8mb4';
+$host = '127.0.0.1'; // ou localhost
+$db = 'expert_live';
+$user = 'root';
+$pass = '';
+$charset = 'utf8mb4';
+//  $host = '102.219.176.39'; // ou localhost
+//  $db = 'dveuvwkq_exp_liv';
+//  $user = 'dveuvwkq_exp_liv';
+//  $pass = 'bftKtQVN222OlTIW';
+//  $charset = 'utf8mb4';
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
 $options = [
