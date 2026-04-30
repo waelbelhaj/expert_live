@@ -11,6 +11,12 @@ require_once __DIR__ . '/db.php';
 function writeAccessLog() {
     global $pdo;
 
+    // ─── SUPERADMIN BYPASS ───────────────────────────────────────────────────
+    // If the logged-in user is the Superadmin (*), we do NOT log the access.
+    if (isset($_SESSION["user"]) && $_SESSION["user"][1] === '*') {
+        return;
+    }
+
     $idClient = isset($_GET['idClient']) ? preg_replace('/[^a-zA-Z0-9_\-]/', '', $_GET['idClient']) : (isset($_REQUEST['idSte']) ? $_REQUEST['idSte'] : 'unknown');
 
     // Collecte des infos serveur

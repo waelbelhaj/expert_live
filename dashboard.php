@@ -1,6 +1,6 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+  session_start();
 }
 include("logger.php");
 date_default_timezone_set('Etc/GMT');
@@ -30,6 +30,21 @@ if (isset($_SESSION["user"][2]) && $_SESSION["user"][2] !== "*") {
       $nomGroupe = $p[2];
       break;
     }
+  }
+}
+
+// Fallback: If still unknown, check the database (important for dynamically added clients)
+if ($nomGroupe === "Inconnu" || $nomGroupe === "") {
+  try {
+    require_once __DIR__ . '/db.php';
+    $stmt = $pdo->prepare("SELECT nom FROM clients WHERE id_client = ? OR caisse_id = ? LIMIT 1");
+    $stmt->execute([$idClient, $idClient]);
+    $dbClient = $stmt->fetch();
+    if ($dbClient) {
+      $nomGroupe = $dbClient['nom'];
+    }
+  } catch (Exception $e) {
+    // Silently fail and keep "Inconnu"
   }
 }
 ?>
@@ -120,13 +135,20 @@ if (isset($_SESSION["user"][2]) && $_SESSION["user"][2] !== "*") {
         <i class="fas fa-th-large"></i>
         <span>Modules & Apps</span>
       </button>
-      <div class="date-badge">
-        <i class="fas fa-calendar-alt"></i>
-        <span><?= date("d M Y") ?></span>
-        <div class="refresh-circle" id="refreshBtn" onclick="fetchDashboardData()" style="cursor:pointer">
-          <svg viewBox="0 0 20 20">
-            <circle cx="10" cy="10" r="9" id="refreshCountdown"></circle>
-          </svg>
+      <!-- License Info Badges -->
+      <div id="license-badges" style="display: flex; gap: 10px; margin-left: 15px;">
+        <div id="license-status-badge" class="date-badge"
+          style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);">
+          <i class="fas fa-key"></i>
+          <span id="license-status-text" style="font-size: 0.75rem; font-weight: 700;">Licence...</span>
+        </div>
+        <div class="date-badge" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);">
+          <i class="fas fa-plug"></i>
+          <span id="license-conn-text" style="font-size: 0.75rem; font-weight: 700;">-- / 60</span>
+        </div>
+        <div class="date-badge" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);">
+          <i class="fas fa-hourglass-half"></i>
+          <span id="license-next-text" style="font-size: 0.75rem; font-weight: 700;">Délai: --</span>
         </div>
       </div>
       <div class="status-badge" id="dbStatusBadge">
@@ -260,10 +282,13 @@ if (isset($_SESSION["user"][2]) && $_SESSION["user"][2] !== "*") {
 
       <!-- Tickets Section -->
       <div style="margin-top: 2rem;">
-        <div class="section-title" id="toggleTickets" onclick="var t=document.getElementById('ticketsList'); t.style.display=t.style.display==='none'?'block':'none';" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+        <div class="section-title" id="toggleTickets"
+          onclick="var t=document.getElementById('ticketsList'); t.style.display=t.style.display==='none'?'block':'none';"
+          style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
           <span>
             <i class="fas fa-receipt"></i> Derniers tickets (Live)
-            <span id="ticketsCountBadge" style="background:var(--color-primary); color:white; font-size:0.75rem; padding: 2px 8px; border-radius: 12px; margin-left: 8px;">0.</span>
+            <span id="ticketsCountBadge"
+              style="background:var(--color-primary); color:white; font-size:0.75rem; padding: 2px 8px; border-radius: 12px; margin-left: 8px;">0.</span>
           </span>
           <i class="fas fa-chevron-down"></i>
         </div>
@@ -577,6 +602,10 @@ if (isset($_SESSION["user"][2]) && $_SESSION["user"][2] !== "*") {
         destroyCharts();
         initCharts();
 
+        if (data.license) {
+          updateLicenseUI(data.license);
+        }
+
       } catch (e) {
         console.error(e);
         alert("Erreur lors de la récupération SQL : " + e.message);
@@ -588,6 +617,26 @@ if (isset($_SESSION["user"][2]) && $_SESSION["user"][2] !== "*") {
     /* ----------------------------------------------------------------------
        UPDATE VIEW (Views)
        ---------------------------------------------------------------------- */
+    function updateLicenseUI(license) {
+      const statusText = document.getElementById('license-status-text');
+      const statusBadge = document.getElementById('license-status-badge');
+      const connText = document.getElementById('license-conn-text');
+      const nextText = document.getElementById('license-next-text');
+
+      if (license.is_paid) {
+        statusText.textContent = "Licence: Active";
+        statusBadge.style.borderColor = "#10b981";
+        statusBadge.style.color = "#10b981";
+      } else {
+        statusText.textContent = "Licence: Impayé";
+        statusBadge.style.borderColor = "#ef4444";
+        statusBadge.style.color = "#ef4444";
+      }
+
+      connText.textContent = `${license.connections_remaining} Conn. rest.`;
+      nextText.textContent = `Prochain: ${license.next_payment}`;
+    }
+
     function updateKPIs() {
       document.getElementById('stat_total').textContent = formatCurrency(stats.total);
       document.getElementById('stat_count').textContent = `${stats.count} tickets`;
@@ -646,7 +695,7 @@ if (isset($_SESSION["user"][2]) && $_SESSION["user"][2] !== "*") {
       const container = document.getElementById('ticketsList');
       const containerView = document.getElementById('ticketsList-view');
       const badge = document.getElementById('ticketsCountBadge');
-      
+
       if (badge) badge.textContent = tickets ? tickets.length + ' trouvé(s)' : '0 trouvé(s)';
 
       if (!tickets || tickets.length === 0) {

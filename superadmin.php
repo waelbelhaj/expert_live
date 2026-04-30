@@ -663,6 +663,9 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"][1] !== '*') {
                         ${escapeHtml(c.notes || '') || '<span style="opacity: 0.5">Aucune note</span>'}
                     </td>
                     <td style="text-align: right">
+                        <a href="dashboard.php?idClient=${c.caisse_id}" target="_blank" class="btn btn-ghost" style="padding: 6px 10px; font-size: 0.75rem; margin-right: 4px; border-radius: 8px; border: 1px solid var(--border);" title="Voir Dashboard">
+                            <i class="fas fa-external-link-alt"></i>
+                        </a>
                         <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.75rem; margin-right: 8px; border-radius: 8px;" onclick="openPaymentModal('${c.id_client}')">
                             <i class="fas fa-money-bill-wave"></i> Paiements
                         </button>

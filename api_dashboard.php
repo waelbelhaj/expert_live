@@ -58,8 +58,22 @@ if ($nomGroupe) {
     foreach ($users as $u => $p) {
         if ($p[2] == $nomGroupe) $idsGroupe[] = $p[1];
     }
+} else {
+    // Fallback for dynamically added clients
+    try {
+        $stmtFallback = $pdo->prepare("SELECT nom, id_client FROM clients WHERE id_client = ? OR caisse_id = ? LIMIT 1");
+        $stmtFallback->execute([$idClient, $idClient]);
+        $dbClient = $stmtFallback->fetch();
+        if ($dbClient) {
+            $nomGroupe = $dbClient['nom'];
+            $idsGroupe[] = $dbClient['id_client'];
+        }
+    } catch (Exception $e) {}
 }
+
 if (empty($idsGroupe)) {
+    $idsGroupe[] = $idClient;
+} else if (!in_array($idClient, $idsGroupe)) {
     $idsGroupe[] = $idClient;
 }
 
@@ -361,9 +375,29 @@ while($row = $stmt->fetch()) {
     ];
 }
 
+// --- 7. LICENSE & SUBSCRIPTION INFO ---
+$license = [
+    "is_paid" => false,
+    "connections_remaining" => 60,
+    "next_payment" => date('01/m/Y', strtotime('first day of next month'))
+];
+
+try {
+    $stmtSub = $pdo->prepare("SELECT is_paid, connections_count FROM subscriptions WHERE client_id IN ($inIds) AND month = ? LIMIT 1");
+    $stmtSub->execute(array_merge($idsGroupe, [date('Y-m')]));
+    $subInfo = $stmtSub->fetch();
+    if ($subInfo) {
+        $license["is_paid"] = (bool)$subInfo['is_paid'];
+        $license["connections_remaining"] = max(0, 60 - $subInfo['connections_count']);
+    }
+} catch (Exception $e) {}
+
+$license['debug_ids'] = $idsGroupe;
+
 // REPONSE FINALE
 echo json_encode([
     "stats" => $stats,
     "tickets" => $tickets,
-    "clotures" => $clotures
+    "clotures" => $clotures,
+    "license" => $license
 ]);

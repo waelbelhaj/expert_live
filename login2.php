@@ -263,11 +263,11 @@ if (!isset($_SESSION["user"])) {
     if (!isset($_GET['idClient']) && $_SESSION["user"][4] <> "*") {
         header('location: ./dashboard.php?idClient=' . $_SESSION["user"][4]);
     }
-    if ($_SESSION["user"][1] == "*" && $_SESSION["user"][4] == "*") {
+    if ($_SESSION["user"][1] == "*" && $_SESSION["user"][4] == "*" && !isset($_GET['idClient'])) {
         header('location: ./superadmin.php');
         exit();
     }
-    if ($_SESSION["user"][4] == "*") {
+    if ($_SESSION["user"][4] == "*" && !isset($_GET['idClient'])) {
         ?>
             <div class="login-wrapper">
                 <h2>EXPERT GESTION</h2>
