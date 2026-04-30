@@ -1,0 +1,208 @@
+.piste {
+    width: 380px;
+}
+
+body {
+    /*background-color: #f6f6f6 !important;*/
+    background-image: url('../images/bg3.jpg') !important;
+    background-size: cover !important;
+}
+
+@media screen and (min-width: 900px) {
+
+    .body {
+        width: 50%;
+        float: right;
+    }
+
+    .pub,
+    .totalGlobale {
+        width: 45%;
+    }
+
+    .sideBar {
+        width: 30%;
+        float: left;
+        padding-left: 10px;
+    }
+}
+
+.ticket {
+    width: 380px;
+    border-radius: 15px;
+    border: 1px solid #ccc;
+    margin: 5px;
+    overflow: hidden;
+    box-shadow: #b7b7b7 0px 0 9px 0px;
+    background-color: #fff;
+}
+
+
+/* .ticketHeaderContainer {
+    background-color: #fff;
+    font-weight: 600;
+    color: #959090;
+    font-size: 12px;
+    text-align: center;
+} */
+
+/* .header {
+    /*background-color: #3df76d;
+}
+*/
+.ticketFooterContainer {
+    font-size: 14px;
+    font-weight: bold;
+    color: #ff5e5e;
+    background-color: #f0f0f0;
+}
+
+.total {
+    text-align: right;
+}
+
+.ligne,
+.footer {
+    font-weight: 600;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+.pub,
+.totalGlobale {
+    width: 380px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.totalMsg {
+    margin-top: 50px;
+    margin-bottom: 30px;
+    padding: 10px;
+    border-radius: 15px;
+    color: #fff;
+    text-align: center;
+    font-weight: 600;
+    font-size: larger;
+    box-shadow: 2px 3px 20px 1px #888888;
+}
+
+.title {
+    width: 384px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    color: #c30000;
+    font-weight: 600;
+    background-color: #f5f5f5;
+    padding: 5px;
+    border-radius: 25px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+    box-shadow: #fbcfcf 0 0 14px 2px;
+    font-size: 25px;
+}
+
+.msgRed {
+    background: linear-gradient(to bottom right, #ed404d, #841b1c);
+}
+
+.msglilas {
+    background: linear-gradient(to bottom right, #ffbabf, #641b84);
+}
+.msgFamille {
+    background: linear-gradient(to bottom right, #00a1ff, #000000);
+}
+
+.msgGreen {
+    background: linear-gradient(to bottom right, #68ed40, #1b843b);
+}
+
+.totalYello {
+    background: linear-gradient(to bottom right, #edcd40, #84741b);
+}
+
+.totalBlue {
+    background: linear-gradient(to bottom right, #40caed, #1b6384);
+}
+
+.glassBlue {
+    background: linear-gradient(to bottom right, #7aa3ff73, #ffffff8c);
+    /* background-color: #ffffff75; */
+    color: #000;
+}
+
+table td {
+    max-width: 215px;
+}
+
+h2 b {
+    color: #fff;
+}
+
+a {
+    text-decoration: none !important;
+}
+
+.pub img {}
+
+.filter {
+    width: 380px !important;
+    display: flex;
+    flex-direction: column-reverse;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.hide {
+    display: none;
+}
+
+.ticketHead {
+    background-color: #009f26;
+    font-weight: 600;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.header a {
+    text-decoration: none;
+    color: #fff;
+}
+
+.header a:hover {
+    color: #eee;
+}
+
+.header {
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.deleted {
+    background-color: #be2b36;
+}
+
+.notdeleted {
+    background-color: #000000a1;
+}
+
+.offre {
+    background-color: #d8d800;
+}
+
+.deletedIco {
+    font-size: 19px;
+    color: #fff;
+    padding-top: 8px;
+    margin-left: 5px;
+}
+
+.nomClient {
+    color: #000;
+}
+
+.colRed {
+    color: red;
+}
