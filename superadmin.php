@@ -18,6 +18,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"][1] !== '*') {
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/ccsv3.css?v=7">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --color-primary: #0b458b;
@@ -360,6 +361,40 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"][1] !== '*') {
 
         <!-- STATS VIEW -->
         <div id="view-stats" class="view-section">
+            <!-- FILTERS BAR -->
+            <div style="background: var(--surface); padding: 1rem 1.5rem; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 2rem; display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-filter" style="color: var(--color-primary)"></i>
+                    <span style="font-weight: 700; font-size: 0.9rem;">Filtrer les KPIs :</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--muted)">Mois :</label>
+                    <select id="statsMonthGlobal" class="form-control" style="width: 130px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); font-weight: 600; font-family: inherit;">
+                        <option value="" selected>Tous les mois</option>
+                        <option value="01">Janvier</option>
+                        <option value="02">Février</option>
+                        <option value="03">Mars</option>
+                        <option value="04">Avril</option>
+                        <option value="05">Mai</option>
+                        <option value="06">Juin</option>
+                        <option value="07">Juillet</option>
+                        <option value="08">Août</option>
+                        <option value="09">Septembre</option>
+                        <option value="10">Octobre</option>
+                        <option value="11">Novembre</option>
+                        <option value="12">Décembre</option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--muted)">Année :</label>
+                    <select id="statsYearGlobal" class="form-control" style="width: 100px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); font-weight: 600; font-family: inherit;">
+                        <?php for($y=date('Y'); $y>=2024; $y--) echo "<option value='$y'>$y</option>"; ?>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="refreshStats()" style="padding: 8px 16px; font-size: 0.8rem; height: 38px;">
+                    <i class="fas fa-sync"></i> Actualiser les données
+                </button>
+            </div>
             <div class="kpi-grid">
                 <div class="kpi-card">
                     <div class="kpi-label">Total Clients</div>
@@ -381,6 +416,11 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"][1] !== '*') {
                     <div class="kpi-value" id="count-alerts" style="color: var(--color-warning)">0</div>
                     <div class="kpi-sub">> 50 connexions</div>
                 </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Offres de Bienvenue</div>
+                    <div class="kpi-value" id="count-offers" style="color: #8b5cf6">0</div>
+                    <div class="kpi-sub">Offre Premier Mois</div>
+                </div>
                 <div class="kpi-card"
                     style="background: linear-gradient(135deg, var(--color-primary) 0%, #000 100%); color: #fff;">
                     <div class="kpi-label" style="color: rgba(255,255,255,0.7)">CA Mensuel Est.</div>
@@ -390,11 +430,34 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"][1] !== '*') {
             </div>
 
             <div class="chart-card full" style="margin-top: 2rem;">
-                <div class="chart-title">Évolution des revenus (Simulation)</div>
-                <div
-                    style="height: 300px; display: flex; align-items: center; justify-content: center; color: var(--muted)">
-                    <i class="fas fa-chart-area fa-3x" style="opacity: 0.2"></i>
-                    <p style="margin-left: 1rem">Module de graphique en cours de développement...</p>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <div class="chart-title"><i class="fas fa-chart-line"></i> Évolution des revenus (Réel)</div>
+                </div>
+                <div style="height: 350px; position: relative;">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+
+            <!-- PAYMENTS TABLE -->
+            <div class="chart-card full" style="margin-top: 2rem;">
+                <div class="chart-title" style="margin-bottom: 1.5rem;"><i class="fas fa-receipt"></i> Historique Global des Paiements</div>
+                <div style="overflow-x: auto;">
+                    <table class="admin-table" style="margin-top: 0;">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Client</th>
+                                <th>Période réglée</th>
+                                <th>Type</th>
+                                <th>Montant</th>
+                                <th>Mode</th>
+                                <th style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="globalPaymentsBody">
+                            <tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--muted);">Chargement des paiements...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -575,9 +638,236 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"][1] !== '*') {
         </div>
     </div>
 
+    <!-- Counter Modal -->
+    <div class="modal-overlay" id="counterModal">
+        <div class="modal" style="max-width: 400px; height: auto;">
+            <div class="modal-header">
+                <div class="modal-title">Modifier le compteur</div>
+                <button class="modal-close" onclick="closeModal('counterModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="counterForm">
+                <div class="modal-body" style="height: auto;">
+                    <input type="hidden" name="idClient">
+                    <div class="form-group">
+                        <label>Nombre de connexions (Mois en cours)</label>
+                        <input type="number" name="count" required min="0" max="9999">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('counterModal')">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Mettre à jour</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- Edit Payment Modal -->
+    <div class="modal-overlay" id="editPaymentModal">
+        <div class="modal" style="max-width: 400px; height: auto;">
+            <div class="modal-header">
+                <div class="modal-title">Modifier la transaction</div>
+                <button class="modal-close" onclick="closeModal('editPaymentModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="editPaymentForm">
+                <div class="modal-body" style="height: auto;">
+                    <input type="hidden" name="id">
+                    <input type="hidden" name="action" value="editPayment">
+                    <div class="form-group">
+                        <label>Montant (Dt)</label>
+                        <input type="number" name="amount" step="0.001" required class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Mode de paiement</label>
+                        <select name="method" class="form-control">
+                            <option value="Espèces">Espèces</option>
+                            <option value="Chèque">Chèque</option>
+                            <option value="Virement">Virement</option>
+                            <option value="Offre Premier Mois">Offre Premier Mois</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes Admin</label>
+                        <textarea name="admin_notes" rows="2" class="form-control"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('editPaymentModal')">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         let clients = [];
         let currentHistoryId = null;
+        let revenueChart = null;
+
+        async function initStats() {
+            const year = document.getElementById('statsYearGlobal').value;
+            const month = document.getElementById('statsMonthGlobal').value;
+
+            try {
+                // Update revenue chart
+                const res = await fetch(`api_superadmin.php?action=getAnnualStats&year=${year}`);
+                const result = await res.json();
+
+                const ctx = document.getElementById('revenueChart').getContext('2d');
+                if (revenueChart) revenueChart.destroy();
+
+                revenueChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'],
+                        datasets: [
+                            {
+                                label: 'Revenus (Dt)',
+                                data: result.revenue,
+                                borderColor: '#0b458b',
+                                backgroundColor: 'rgba(11, 69, 139, 0.1)',
+                                fill: true,
+                                tension: 0.4,
+                                borderWidth: 3,
+                                pointBackgroundColor: '#0b458b',
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: 'Offres (Nombre)',
+                                data: result.offers,
+                                borderColor: '#8b5cf6',
+                                backgroundColor: 'transparent',
+                                borderDash: [5, 5],
+                                tension: 0.4,
+                                borderWidth: 2,
+                                pointBackgroundColor: '#8b5cf6',
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            legend: { 
+                                display: true,
+                                position: 'top',
+                                labels: { font: { weight: 'bold', size: 12 }, usePointStyle: true }
+                            },
+                            tooltip: {
+                                backgroundColor: '#1e293b',
+                                padding: 12,
+                                cornerRadius: 8,
+                                callbacks: {
+                                    label: (context) => {
+                                        let label = context.dataset.label || '';
+                                        if (label) label += ': ';
+                                        if (context.datasetIndex === 0) label += context.parsed.y.toFixed(3) + ' Dt';
+                                        else label += context.parsed.y + ' Offres';
+                                        return label;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: { 
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                beginAtZero: true,
+                                grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false },
+                                ticks: { callback: (value) => value.toFixed(0) + ' Dt' }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                beginAtZero: true,
+                                grid: { drawOnChartArea: false },
+                                ticks: { callback: (value) => value + ' Offres' }
+                            },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+
+                // Fetch global payments
+                fetchGlobalPayments(year, month);
+                
+                // Fetch KPIs for the selected month/year
+                const monthParam = month ? `${year}-${month}` : `${year}-${new Date().toISOString().slice(5, 7)}`;
+                const resKpi = await fetch(`api_superadmin.php?action=listClients&month=${monthParam}`);
+                const kpiClients = await resKpi.json();
+                updateKPIs(kpiClients, monthParam);
+
+            } catch (e) {
+                console.error('Error initializing stats:', e);
+            }
+        }
+
+        async function fetchGlobalPayments(year, month) {
+            const tbody = document.getElementById('globalPaymentsBody');
+            try {
+                const res = await fetch(`api_superadmin.php?action=listAllPayments&year=${year}&month=${month}`);
+                const payments = await res.json();
+                
+                tbody.innerHTML = '';
+                if (payments.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--muted); font-style: italic;">Aucun paiement trouvé pour cette période.</td></tr>';
+                    return;
+                }
+
+                payments.forEach(p => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${new Date(p.payment_date).toLocaleDateString()}</td>
+                        <td style="font-weight: 700;">${escapeHtml(p.client_nom || p.client_id)}</td>
+                        <td><span class="status-pill status-paid">${p.period_value}</span></td>
+                        <td><span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--muted)">${p.period_type}</span></td>
+                        <td style="font-family: 'IBM Plex Mono'; font-weight: 700; color: var(--color-primary)">${parseFloat(p.amount).toFixed(3)} Dt</td>
+                        <td>${escapeHtml(p.payment_method)}</td>
+                        <td style="text-align: right;">
+                            <button class="btn btn-icon" onclick='prepareEditPayment(${JSON.stringify(p)})' title="Modifier"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-icon" onclick="deletePayment(${p.id})" title="Supprimer" style="color: var(--color-danger)"><i class="fas fa-trash"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-danger);">Erreur lors du chargement des paiements.</td></tr>';
+            }
+        }
+
+        function refreshStats() {
+            initStats();
+        }
+
+        function prepareEditPayment(p) {
+            const form = document.getElementById('editPaymentForm');
+            form.id.value = p.id;
+            form.amount.value = p.amount;
+            form.method.value = p.payment_method;
+            form.admin_notes.value = p.admin_notes || '';
+            document.getElementById('editPaymentModal').classList.add('active');
+        }
+
+        async function deletePayment(id) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer cette transaction ? L\'abonnement redeviendra "Non Payé".')) return;
+            const fd = new FormData();
+            fd.append('action', 'deletePayment');
+            fd.append('id', id);
+            await fetch('api_superadmin.php', { method: 'POST', body: fd });
+            refreshStats();
+        }
+
+        function editCounter(idClient, currentCount) {
+            const form = document.getElementById('counterForm');
+            form.idClient.value = idClient;
+            form.count.value = currentCount;
+            document.getElementById('counterModal').classList.add('active');
+        }
 
         function switchTab(el, tabId) {
             document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
@@ -585,7 +875,12 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"][1] !== '*') {
 
             el.classList.add('active');
             const target = document.getElementById(`view-${tabId}`);
-            if (target) target.classList.add('active');
+            if (target) {
+                target.classList.add('active');
+                if (tabId === 'stats') {
+                    initStats();
+                }
+            }
         }
 
         function closeModal(id) {
@@ -597,7 +892,13 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"][1] !== '*') {
             try {
                 const res = await fetch('api_superadmin.php?action=listClients');
                 if (!res.ok) throw new Error('Network response was not ok');
-                clients = await res.json();
+                const data = await res.json();
+                if (data.error) {
+                    console.error('API Error:', data.error);
+                    clients = [];
+                } else {
+                    clients = Array.isArray(data) ? data : [];
+                }
                 renderClients();
                 updateKPIs();
                 updateClientSelect();
@@ -611,12 +912,14 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"][1] !== '*') {
             if (!select) return;
             const currentVal = select.value;
             select.innerHTML = '<option value="">-- Choisir un client --</option>';
-            clients.sort((a, b) => (a.nom || '').localeCompare(b.nom || '')).forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c.id_client;
-                opt.textContent = `${c.id_client} - ${c.nom}`;
-                select.appendChild(opt);
-            });
+            if (Array.isArray(clients)) {
+                clients.sort((a, b) => (a.nom || '').localeCompare(b.nom || '')).forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id_client;
+                    opt.textContent = `${c.id_client} - ${c.nom}`;
+                    select.appendChild(opt);
+                });
+            }
             select.value = currentVal;
         }
 
@@ -656,7 +959,12 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"][1] !== '*') {
                         </div>
                     </td>
                     <td>
-                        <div style="font-size: 0.8rem; font-weight: 600">${connections} / 60</div>
+                        <div style="font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                            ${connections} / 60
+                            <button class="action-btn" style="width: 20px; height: 20px; font-size: 0.6rem;" onclick="editCounter('${c.id_client}', ${connections})" title="Modifier le compteur">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                        </div>
                         <div class="usage-bar"><div class="usage-fill ${usageClass}" style="width: ${pctUsage}%"></div></div>
                     </td>
                     <td style="max-width: 200px; font-size: 0.75rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
@@ -684,18 +992,25 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"][1] !== '*') {
             });
         }
 
-        function updateKPIs() {
+        function updateKPIs(data = null, monthStr = null) {
             try {
-                document.getElementById('count-total').textContent = clients.length;
-                document.getElementById('count-paid').textContent = clients.filter(c => c.is_paid == 1).length;
-                document.getElementById('count-locked').textContent = clients.filter(c => c.is_locked == 1).length;
-                document.getElementById('count-alerts').textContent = clients.filter(c => (c.connections_count || 0) > 50).length;
+                const targetData = data || clients;
+                document.getElementById('count-total').textContent = targetData.length;
+                document.getElementById('count-paid').textContent = targetData.filter(c => c.is_paid == 1 && c.payment_method !== 'Offre Premier Mois').length;
+                document.getElementById('count-locked').textContent = targetData.filter(c => c.is_locked == 1).length;
+                document.getElementById('count-alerts').textContent = targetData.filter(c => (c.connections_count || 0) > 50).length;
+                
+                const offersCount = targetData.filter(c => c.payment_method === 'Offre Premier Mois').length;
+                document.getElementById('count-offers').textContent = offersCount;
 
-                const revenue = clients.filter(c => c.is_paid == 1).length * 30;
+                // Revenue calculation: exclude "Offre Premier Mois"
+                const paidRealCount = targetData.filter(c => c.is_paid == 1 && c.payment_method !== 'Offre Premier Mois').length;
+                const revenue = paidRealCount * 30;
                 document.getElementById('stat-revenue').textContent = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 3 }).format(revenue) + " Dt";
 
                 const months = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-                document.getElementById('month-name').textContent = months[new Date().getMonth()];
+                const displayMonth = monthStr ? months[parseInt(monthStr.split('-')[1]) - 1] : months[new Date().getMonth()];
+                document.getElementById('month-name').textContent = displayMonth;
             } catch (e) { console.error('Error updating KPIs:', e); }
         }
 
@@ -872,6 +1187,32 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"][1] !== '*') {
                 }
             });
 
+            document.getElementById('counterForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                fd.append('action', 'updateCounter');
+                
+                try {
+                    const res = await fetch('api_superadmin.php', { method: 'POST', body: fd });
+                    if (!res.ok) throw new Error('Update failed');
+                    closeModal('counterModal');
+                    fetchClients();
+                } catch (e) {
+                    alert('Erreur lors de la mise à jour : ' + e.message);
+                }
+            });
+
+            document.getElementById('statsYearGlobal').addEventListener('change', initStats);
+            document.getElementById('statsMonthGlobal').addEventListener('change', initStats);
+
+            document.getElementById('editPaymentForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                await fetch('api_superadmin.php', { method: 'POST', body: fd });
+                closeModal('editPaymentModal');
+                refreshStats();
+            });
+
             const themeToggle = document.getElementById('themeToggle');
             themeToggle.onclick = () => {
                 const html = document.documentElement;
@@ -881,6 +1222,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"][1] !== '*') {
             };
 
             fetchClients();
+            setInterval(fetchClients, 60000);
         });
     </script>
 </body>

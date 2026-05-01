@@ -33,19 +33,58 @@ if (isset($_SESSION["user"][2]) && $_SESSION["user"][2] !== "*") {
   }
 }
 
-// Fallback: If still unknown, check the database (important for dynamically added clients)
-if ($nomGroupe === "Inconnu" || $nomGroupe === "") {
+// Fallback: If unknown or numeric, check the database (important for dynamically added clients or POS numeric IDs)
+if ($nomGroupe === "Inconnu" || $nomGroupe === "" || is_numeric($idClient)) {
   try {
     require_once __DIR__ . '/db.php';
-    $stmt = $pdo->prepare("SELECT nom FROM clients WHERE id_client = ? OR caisse_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT id_client, nom, is_locked FROM clients WHERE id_client = ? OR caisse_id = ? LIMIT 1");
     $stmt->execute([$idClient, $idClient]);
     $dbClient = $stmt->fetch();
     if ($dbClient) {
       $nomGroupe = $dbClient['nom'];
+      $idClient = $dbClient['id_client']; // Resolve to canonical string ID
+      // Block if locked
+      if ($dbClient['is_locked'] && (!isset($_SESSION["user"][1]) || $_SESSION["user"][1] !== '*')) {
+        die("Accès Verrouillé. Veuillez contacter l'administrateur.");
+      }
     }
   } catch (Exception $e) {
-    // Silently fail and keep "Inconnu"
+    // Silently fail
   }
+} else {
+    // Check if the current client is locked (if we already have info)
+    foreach ($users as $u => $p) {
+        if ($p[1] == $idClient) {
+            if (isset($p[5]) && $p[5] == 1 && (!isset($_SESSION["user"][1]) || $_SESSION["user"][1] !== '*')) {
+                die("Accès Verrouillé. Veuillez contacter l'administrateur.");
+            }
+            break;
+        }
+    }
+}
+
+// Final fallback: if unknown, use the Client ID
+if ($nomGroupe === "Inconnu" || $nomGroupe === "") {
+    $nomGroupe = $idClient;
+}
+
+// ─── CONNECTION COUNTER ───────────────────────────────────────────────────
+// Increment counter only for normal users (not superadmin)
+if (isset($_SESSION["user"]) && $_SESSION["user"][1] !== '*') {
+    try {
+        require_once __DIR__ . '/db.php';
+        $currentMonth = date('Y-m');
+        
+        // 1. Ensure subscription record exists
+        $stmtSub = $pdo->prepare("INSERT IGNORE INTO subscriptions (client_id, month, is_paid, connections_count) VALUES (?, ?, 0, 0)");
+        $stmtSub->execute([$idClient, $currentMonth]);
+        
+        // 2. Increment count
+        $stmtUpdate = $pdo->prepare("UPDATE subscriptions SET connections_count = connections_count + 1 WHERE client_id = ? AND month = ?");
+        $stmtUpdate->execute([$idClient, $currentMonth]);
+    } catch (Exception $e) {
+        // Log error or ignore
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -112,6 +151,130 @@ if ($nomGroupe === "Inconnu" || $nomGroupe === "") {
 
     .clotures-table th {
       background: var(--bg-card);
+      font-weight: 600;
+    }
+
+    /* License Modal Styles */
+    .license-modal {
+      max-width: 450px !important;
+      text-align: center;
+      padding: 0 !important;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px !important;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3) !important;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .license-modal::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 6px;
+      background: linear-gradient(90deg, var(--color-danger), var(--color-warning));
+    }
+
+    .license-modal-content {
+      padding: 2.5rem;
+    }
+
+    .license-icon-wrapper {
+      width: 80px;
+      height: 80px;
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--color-danger);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      margin: 0 auto 1.5rem;
+      animation: pulse-danger 2s infinite;
+    }
+
+    @keyframes pulse-danger {
+      0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+      }
+
+      70% {
+        box-shadow: 0 0 0 20px rgba(239, 68, 68, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+      }
+    }
+
+    .license-modal h2 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    .license-modal p {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+
+    .license-status-card {
+      background: var(--surface2);
+      border-radius: 16px;
+      padding: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+    }
+
+    .status-item:not(:last-child) {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .status-item .label {
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .status-item .value {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .status-item .value.unpaid {
+      color: var(--color-danger);
+    }
+
+    .license-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .btn-lg {
+      padding: 14px;
+      font-size: 1rem;
+    }
+
+    .license-footer {
+      margin-top: 1.5rem !important;
+      font-size: 0.8rem !important;
+      color: var(--muted2) !important;
+    }
+
+    .license-footer a {
+      color: var(--color-primary);
+      text-decoration: none;
       font-weight: 600;
     }
   </style>
@@ -489,10 +652,48 @@ if ($nomGroupe === "Inconnu" || $nomGroupe === "") {
     </div>
   </div>
 
+  <!-- Modal License Expiration -->
+  <div class="modal-overlay" id="licenseModal">
+    <div class="modal license-modal">
+      <div class="license-modal-content">
+        <div class="license-icon-wrapper">
+          <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <h2>Abonnement Expiré</h2>
+        <p>Votre licence pour le mois en cours n'a pas encore été réglée. Pour continuer à profiter de toutes les fonctionnalités d'Expert Gestion, veuillez procéder au paiement.</p>
+
+        <div class="license-status-card">
+          <div class="status-item">
+            <span class="label">Statut</span>
+            <span class="value unpaid">Impayé</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Échéance</span>
+            <span class="value" id="modal-license-date">--/--/----</span>
+          </div>
+        </div>
+
+        <div class="license-actions">
+          <button class="btn btn-primary btn-lg" onclick="window.open('https://einfo.tn/developpement/contact/', '_blank')">
+            <i class="fas fa-credit-card"></i> Régler maintenant
+          </button>
+          <button class="btn btn-ghost" onclick="closeLicenseModal()">
+            Plus tard
+          </button>
+        </div>
+
+        <p class="license-footer">
+          Besoin d'aide ? <a href="tel:+21671000000">Contactez le support</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
 
   <!-- MVC CONTROLLER (JS) -->
   <script>
     // Globals
+    const isSuperAdmin = <?php echo (isset($_SESSION["user"]) && $_SESSION["user"][1] === '*') ? 'true' : 'false'; ?>;
     let stats = {};
     let tickets = [];
     let clotures = [];
@@ -635,6 +836,28 @@ if ($nomGroupe === "Inconnu" || $nomGroupe === "") {
 
       connText.textContent = `${license.connections_remaining} Conn. rest.`;
       nextText.textContent = `Prochain: ${license.next_payment}`;
+
+      // Show popup if not paid and NOT superadmin
+      if (!license.is_paid && !isSuperAdmin) {
+        showLicenseModal(license);
+      }
+    }
+
+    let lastLicenseData = null;
+    function showLicenseModal(license) {
+      lastLicenseData = license;
+      document.getElementById('modal-license-date').textContent = license.next_payment;
+      document.getElementById('licenseModal').classList.add('open');
+    }
+
+    function closeLicenseModal() {
+      closeModal('licenseModal');
+      // Re-show after 3 seconds as requested
+      setTimeout(() => {
+        if (lastLicenseData && !lastLicenseData.is_paid) {
+          showLicenseModal(lastLicenseData);
+        }
+      }, 3000);
     }
 
     function updateKPIs() {
@@ -1086,6 +1309,17 @@ if ($nomGroupe === "Inconnu" || $nomGroupe === "") {
       fetchDashboardData();
       // Optionnel : Actualisation toutes les 2 minutes (120000ms)
       setInterval(fetchDashboardData, 120000);
+
+      // Prevent ESC key from closing the license modal
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          const licenseModal = document.getElementById('licenseModal');
+          if (licenseModal && licenseModal.classList.contains('open')) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }
+      });
     };
 
   </script>

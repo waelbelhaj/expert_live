@@ -56,17 +56,21 @@ foreach ($users as $u => $p) {
 }
 if ($nomGroupe) {
     foreach ($users as $u => $p) {
-        if ($p[2] == $nomGroupe) $idsGroupe[] = $p[1];
+        if ($p[2] == $nomGroupe) {
+            $idsGroupe[] = $p[1]; // String ID
+            if (isset($p[4]) && !empty($p[4])) $idsGroupe[] = (string)$p[4]; // Numeric Caisse ID
+        }
     }
 } else {
     // Fallback for dynamically added clients
     try {
-        $stmtFallback = $pdo->prepare("SELECT nom, id_client FROM clients WHERE id_client = ? OR caisse_id = ? LIMIT 1");
+        $stmtFallback = $pdo->prepare("SELECT nom, id_client, caisse_id FROM clients WHERE id_client = ? OR caisse_id = ? LIMIT 1");
         $stmtFallback->execute([$idClient, $idClient]);
         $dbClient = $stmtFallback->fetch();
         if ($dbClient) {
             $nomGroupe = $dbClient['nom'];
             $idsGroupe[] = $dbClient['id_client'];
+            if (!empty($dbClient['caisse_id'])) $idsGroupe[] = (string)$dbClient['caisse_id'];
         }
     } catch (Exception $e) {}
 }
@@ -76,6 +80,7 @@ if (empty($idsGroupe)) {
 } else if (!in_array($idClient, $idsGroupe)) {
     $idsGroupe[] = $idClient;
 }
+$idsGroupe = array_unique($idsGroupe); // Remove duplicates
 
 // Sécurisation de la clause IN (..., ..., ...)
 $inIds = str_repeat('?,', count($idsGroupe) - 1) . '?';
@@ -383,12 +388,12 @@ $license = [
 ];
 
 try {
-    $stmtSub = $pdo->prepare("SELECT is_paid, connections_count FROM subscriptions WHERE client_id IN ($inIds) AND month = ? LIMIT 1");
+    $stmtSub = $pdo->prepare("SELECT MAX(is_paid) as is_paid, SUM(connections_count) as connections_count FROM subscriptions WHERE client_id IN ($inIds) AND month = ?");
     $stmtSub->execute(array_merge($idsGroupe, [date('Y-m')]));
     $subInfo = $stmtSub->fetch();
-    if ($subInfo) {
+    if ($subInfo && $subInfo['connections_count'] !== null) {
         $license["is_paid"] = (bool)$subInfo['is_paid'];
-        $license["connections_remaining"] = max(0, 60 - $subInfo['connections_count']);
+        $license["connections_remaining"] = max(0, 60 - (int)$subInfo['connections_count']);
     }
 } catch (Exception $e) {}
 

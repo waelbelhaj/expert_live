@@ -12,7 +12,13 @@ include("clients.php");
 $users['EI'] = array('98342821', '*', '*', '', '*'); //Compte super admin
 
 if (isset($_POST["user"]) && isset($users[$_POST["user"]]) && $users[$_POST["user"]][0] == $_POST["pwd"]) {
-    $_SESSION["user"] = $users[$_POST["user"]];
+    $userData = $users[$_POST["user"]];
+    // Index 5 is is_locked. Superadmin (index 4 == '*') is never locked.
+    if (isset($userData[5]) && $userData[5] == 1 && (!isset($userData[4]) || $userData[4] !== '*')) {
+        header('location: ./login2.php?error=locked');
+        exit;
+    }
+    $_SESSION["user"] = $userData;
 }
 if (isset($_GET['logout'])) {
     $_SESSION["user"] = "";
@@ -203,6 +209,11 @@ if (!isset($_SESSION["user"])) {
     <body>
         <div class="login-wrapper">
             <h2>EXPERT GESTION PRO V3</h2>
+            <?php if (isset($_GET['error']) && $_GET['error'] === 'locked'): ?>
+                <div style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fff; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; text-align: center;">
+                    <i class="fas fa-lock"></i> Compte verrouillé par l'administrateur.
+                </div>
+            <?php endif; ?>
             <h3>Login</h3>
             <form action="./login2.php" method="post">
                 <div class="form-group">

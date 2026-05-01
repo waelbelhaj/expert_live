@@ -13,7 +13,7 @@ $users = [];
 
 try {
     // Lecture des clients
-    $stmt = $pdo->query("SELECT id_client, code_pin, nom, role, caisse_id FROM clients");
+    $stmt = $pdo->query("SELECT id_client, code_pin, nom, role, caisse_id, is_locked FROM clients");
     while ($row = $stmt->fetch()) {
         if (!empty($row['caisse_id']) && $row['caisse_id'] > 1) {
             $users[$row['id_client']] = [
@@ -21,14 +21,17 @@ try {
                 $row['id_client'], // dans l'ancien système c'était souvent un identifiant dossier (numérique/tel), mais l'ID client est utilisé
                 $row['nom'],
                 $row['role'],
-                (int)$row['caisse_id']
+                (int)$row['caisse_id'],
+                (int)($row['is_locked'] ?? 0)
             ];
         } else {
             $users[$row['id_client']] = [
                 $row['code_pin'],
                 $row['id_client'], 
                 $row['nom'],
-                $row['role']
+                $row['role'],
+                1, // default caisse_id
+                (int)($row['is_locked'] ?? 0)
             ];
         }
     }

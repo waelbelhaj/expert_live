@@ -2,25 +2,30 @@
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/db.php';
 
-$idClient = $_GET['idClient'] ?? null;
+$idClient = $_GET['idClient'] ?? $_GET['idSte'] ?? null;
 if (!$idClient) {
-    echo json_encode(["status" => "ERROR", "message" => "Client ID missing"]);
+    echo json_encode(["status" => "ERROR", "message" => "Client ID (idClient/idSte) missing"]);
     exit;
 }
+
+// Resolve real id_client (REMOVED: Keeping raw numeric ID for compatibility)
+$idClient = $idClient;
 
 $currentMonth = date('Y-m');
 $currentDate = date('Y-m-d');
 
 try {
-    // 1. Get client info
-    $stmt = $pdo->prepare("SELECT id_client, is_locked FROM clients WHERE id_client = ?");
-    $stmt->execute([$idClient]);
+    // 1. Get client info (support both string ID and numeric caisse_id)
+    $stmt = $pdo->prepare("SELECT id_client, is_locked FROM clients WHERE id_client = ? OR caisse_id = ? LIMIT 1");
+    $stmt->execute([$idClient, $idClient]);
     $client = $stmt->fetch();
 
     if (!$client) {
         echo json_encode(["status" => "ERROR", "message" => "Client not found"]);
         exit;
     }
+
+    $idClient = $client['id_client']; // Use canonical string ID
 
     if ($client['is_locked']) {
         echo json_encode(["status" => "LOCKED", "message" => "Application verrouillée par l'administrateur"]);
@@ -42,10 +47,13 @@ try {
     }
 
     // Increment connection count
-    $pdo->prepare("UPDATE subscriptions SET connections_count = connections_count + 1 WHERE id = ?")
-        ->execute([$subscription['id']]);
+    $pdo->prepare("UPDATE subscriptions SET connections_count = connections_count + 1 WHERE client_id = ? AND month = ?")
+        ->execute([$idClient, $currentMonth]);
     
-    $connectionsCount = $subscription['connections_count'] + 1;
+    // Refresh subscription info to get the new count
+    $stmt->execute([$idClient, $currentMonth]);
+    $subscription = $stmt->fetch();
+    $connectionsCount = (int)$subscription['connections_count'];
 
     // 3. Manage Daily Access (for unpaid logic)
     $stmt = $pdo->prepare("SELECT * FROM daily_access WHERE client_id = ? AND access_date = ?");
@@ -62,11 +70,11 @@ try {
     // 4. Subscription Enforcement Logic
     $isPaid = (bool)$subscription['is_paid'];
     
-    // Check monthly connection limit (60)
-    if ($connectionsCount > 60) {
+    // Check monthly connection limit (60) only for UNPAID users
+    if (!$isPaid && $connectionsCount > 60) {
         echo json_encode([
             "status" => "LIMIT_EXCEEDED",
-            "message" => "Limite de 60 connexions mensuelles atteinte",
+            "message" => "Limite de 60 connexions mensuelles atteinte. Veuillez régulariser votre abonnement.",
             "connections" => $connectionsCount
         ]);
         exit;

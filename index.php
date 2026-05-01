@@ -13,6 +13,10 @@ if ($action <= 0 || $idClient === 'ERROR') {
     die("Paramètres invalides");
 }
 
+// ─── RÉSOLUTION DE L'ID_CLIENT RÉEL (RETIRE CAR L'UTILISATEUR VEUT GARDER L'ID NUMÉRIQUE) ───────────────────────────────────────
+// On utilise directement l'idSte envoyé par la caisse
+$idClient = $idClient; // On garde la valeur brute
+
 switch ($action) {
     case 1: // Ajout / Modification Ticket
         $ticketIdStr = $_REQUEST['ticket'] ?? '';
